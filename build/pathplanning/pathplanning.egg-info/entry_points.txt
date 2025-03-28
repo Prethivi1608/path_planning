@@ -1,0 +1,3 @@
+[console_scripts]
+path_planning = pathplanning.pathplanning:main
+

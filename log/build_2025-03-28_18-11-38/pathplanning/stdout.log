@@ -1,0 +1,38 @@
+running egg_info
+creating ../../build/pathplanning/pathplanning.egg-info
+writing ../../build/pathplanning/pathplanning.egg-info/PKG-INFO
+writing dependency_links to ../../build/pathplanning/pathplanning.egg-info/dependency_links.txt
+writing entry points to ../../build/pathplanning/pathplanning.egg-info/entry_points.txt
+writing requirements to ../../build/pathplanning/pathplanning.egg-info/requires.txt
+writing top-level names to ../../build/pathplanning/pathplanning.egg-info/top_level.txt
+writing manifest file '../../build/pathplanning/pathplanning.egg-info/SOURCES.txt'
+reading manifest file '../../build/pathplanning/pathplanning.egg-info/SOURCES.txt'
+writing manifest file '../../build/pathplanning/pathplanning.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build
+creating /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib
+creating /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning
+copying pathplanning/preprocessing_pcd.py -> /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning
+copying pathplanning/pathplanning.py -> /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning
+copying pathplanning/__init__.py -> /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning
+running install
+running install_lib
+creating /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning
+copying /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning/preprocessing_pcd.py -> /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning
+copying /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning/pathplanning.py -> /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning
+copying /home/prethivi/ros2_ws/pathplanning/build/pathplanning/build/lib/pathplanning/__init__.py -> /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning
+byte-compiling /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning/preprocessing_pcd.py to preprocessing_pcd.cpython-310.pyc
+byte-compiling /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning/pathplanning.py to pathplanning.cpython-310.pyc
+byte-compiling /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /home/prethivi/ros2_ws/pathplanning/install/pathplanning/share/ament_index
+creating /home/prethivi/ros2_ws/pathplanning/install/pathplanning/share/ament_index/resource_index
+creating /home/prethivi/ros2_ws/pathplanning/install/pathplanning/share/ament_index/resource_index/packages
+copying resource/pathplanning -> /home/prethivi/ros2_ws/pathplanning/install/pathplanning/share/ament_index/resource_index/packages
+copying package.xml -> /home/prethivi/ros2_ws/pathplanning/install/pathplanning/share/pathplanning
+running install_egg_info
+Copying ../../build/pathplanning/pathplanning.egg-info to /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning-0.0.0-py3.10.egg-info
+running install_scripts
+Installing path_planning script to /home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/pathplanning
+writing list of installed files to '/home/prethivi/ros2_ws/pathplanning/build/pathplanning/install.log'

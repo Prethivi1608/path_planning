@@ -13,7 +13,6 @@ print(pcd_down)
 #filtering
 cl, ind = pcd_down.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
 pcd_filtered = pcd_down.select_by_index(ind)
-print(pcd_filtered)
 
 #write a new pcd file
 o3d.io.write_point_cloud("processed.pcd", pcd_filtered)

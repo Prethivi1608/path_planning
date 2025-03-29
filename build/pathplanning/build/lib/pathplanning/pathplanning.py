@@ -6,7 +6,7 @@ import rclpy.time
 from std_msgs.msg import Header
 from geometry_msgs.msg import Pose,Point    
 from visualization_msgs.msg import Marker
-from open3d import *
+import open3d as o3d
 import numpy as np
 import time
 import math
@@ -32,19 +32,28 @@ class graph_node():
 
 
 class Graph(Node):
-    def __init__(self,map):
+    def __init__(self):
         super().__init__('graph')
 
-        self.map = map
+        self.map_height = 0
+        self.map_width = 0
+        self.map_data = None
+        self.resolution = None
 
         self.nodes = []
+        self.obstacles_ = None
+        self.obstacles_position = None
+        self.map_origin_x = None
+        self.map_origin_y = None
 
         print('>>>>>')
 
-        self.grid_stepsize = 2
+        self.grid_stepsize = 1
 
+        self.subscription = self.create_subscription(
+            OccupancyGrid, 'map', self.map_callback, 10)
+ 
         self.marker_publish = self.create_publisher(Marker,'/marker',10)
-        self.marker_timer = self.create_timer(0.5,self.create_grid)
 
         self.marker_node = Marker()
         self.marker_node.header = Header()
@@ -55,9 +64,9 @@ class Graph(Node):
         self.marker_node.pose.position.x = 0.0
         self.marker_node.pose.position.y = 0.0
         self.marker_node.pose.position.z = 0.0
-        self.marker_node.scale.x = 0.3
-        self.marker_node.scale.y = 0.3
-        self.marker_node.scale.z = 0.3
+        self.marker_node.scale.x = 0.05
+        self.marker_node.scale.y = 0.05
+        self.marker_node.scale.z = 0.05
         self.marker_node.color.a = 1.0
         self.marker_node.color.r = 1.0
         self.marker_node.color.g = 1.0
@@ -72,31 +81,66 @@ class Graph(Node):
         self.marker_edges_.pose.position.x = 0.0
         self.marker_edges_.pose.position.y = 0.0
         self.marker_edges_.pose.position.z = 0.0
-        self.marker_edges_.scale.x = 0.3
-        self.marker_edges_.scale.y = 0.3
-        self.marker_edges_.scale.z = 0.3
+        self.marker_edges_.scale.x = 0.01
+        self.marker_edges_.scale.y = 0.01
+        self.marker_edges_.scale.z = 0.01
         self.marker_edges_.color.a = 1.0
-        self.marker_edges_.color.r = 1.0
-        self.marker_edges_.color.g = 1.0
-        self.marker_edges_.color.b = 0.4
+        self.marker_edges_.color.r = 0.0
+        self.marker_edges_.color.g = 0.0
+        self.marker_edges_.color.b = 0.0
+
+        self.marker_path = Marker()
+        self.marker_path.header.frame_id = "map"
+        self.marker_path.ns = "path"
+        self.marker_path.id = 0
+        self.marker_path.type = Marker.LINE_LIST
+        self.marker_path.action = Marker.ADD
+        self.marker_path.pose.position.x = 0.0
+        self.marker_path.pose.position.y = 0.0
+        self.marker_path.pose.position.z = 0.0
+        self.marker_path.scale.x = 0.01
+        self.marker_path.scale.y = 0.01
+        self.marker_path.scale.z = 0.01
+        self.marker_path.color.a = 1.0
+        self.marker_path.color.r = 0.0
+        self.marker_path.color.g = 1.0
+        self.marker_path.color.b = 0.0
+
+
+    def map_callback(self, msg):
+        self.map_width = msg.info.width
+        self.map_height = msg.info.height
+        self.resolution = msg.info.resolution
+        self.map_origin_x = msg.info.origin.position.x
+        self.map_origin_y = msg.info.origin.position.y
+        self.map_data = np.array(msg.data, dtype=np.int8).reshape((self.map_height, self.map_width))
+        self.obstacles_ = np.where(self.map_data >= 50)
+        self.obstacles_position = list(zip(self.obstacles_[0],self.obstacles_[1]))
+        self.get_logger().info("Graph received map data")
+        self.create_grid()
 
     def create_grid(self):
 
         print('<<<<<>>>>>')
+        if self.map_data is None:
+            self.get_logger("No Map Data Recieved")
+            return
 
         idx=0
-        for x in range(0,10,self.grid_stepsize): # Chnage it to map width
-            for y in range(0,10,self.grid_stepsize): # Change it to map height
-                self.nodes.append(graph_node(idx,x,y))
+        for i in range(0, self.map_width, self.grid_stepsize): 
+            for j in range(0, self.map_height, self.grid_stepsize): 
+                x = i * self.resolution + self.map_origin_x
+                y = j * self.resolution + self.map_origin_y
+                if self.obstacle_node(x,y):
+                    continue
+                else:
+                    self.nodes.append(graph_node(idx,x,y)) #create Node
                 idx += 1
 
         
-        count = 0
-        distance_threshold = self.grid_stepsize*1.01
+        distance_threshold = self.grid_stepsize*0.5
 
         for nodei in self.nodes:
-            count += 1
-
             for nodej in self.nodes:
                 if nodei != nodej:
                     distance = nodei.distance_to(nodej)
@@ -114,11 +158,10 @@ class Graph(Node):
         self.marker_node.points = []
         
         for node in self.nodes:
-            node.z = 0
             point = Point()
             point.x = float(node.x)
             point.y = float(node.y)
-            point.z = float(node.z)
+            point.z = 0.0
             self.marker_node.points.append(point)
 
         self.marker_edges_.points = []
@@ -127,20 +170,19 @@ class Graph(Node):
             for nodej_idx in range(len(nodei.neighbours_)):
 
                 nodej = nodei.neighbours_[nodej_idx]
-                nodei.z = 0
-                nodej.z = 0
                 point = Point()
                 point.x = float(nodei.x)
                 point.y = float(nodei.y)
-                point.z = float(nodei.z)
+                point.z = 0.0
                 self.marker_edges_.points.append(point)
                 point = Point()
                 point.x = float(nodej.x)
                 point.y = float(nodej.y)
-                point.z = float(nodej.z)
+                point.z = 0.0
                 self.marker_edges_.points.append(point)
 
         self.marker_publish.publish(self.marker_node)
+        self.marker_publish.publish(self.marker_edges_)
 
     def get_closest_node(self,xy):
         best_distance = 9999999
@@ -153,6 +195,30 @@ class Graph(Node):
                 best_idx = node.idx
 
         return best_idx
+    
+    def obstacle_node(self,x,y):
+        min_distance = 9999999
+        obstacle_threshold = self.resolution/2
+        
+        for i in range(len(self.obstacles_position)):
+            obs_x = self.obstacles_position[i][1] * self.resolution + self.map_origin_x
+            obs_y = self.obstacles_position[i][0] * self.resolution + self.map_origin_y
+            distance = math.sqrt((x - obs_x)**2 + (y - obs_y)**2)
+            if distance < min_distance:
+                min_distance = distance
+        
+        if min_distance <= obstacle_threshold:
+            return True
+        return False
+    
+    def is_path_obstructed(self, x1, y1, x2, y2):
+        num_points = int(math.dist([x1, y1], [x2, y2]) / self.resolution * 2) 
+        for i in range(num_points + 1):
+            px = x1 + i * (x2 - x1) / num_points
+            py = y1 + i * (y2 - y1) / num_points
+            if self.obstacle_node(px, py):  
+                return True
+        return False
 
 
 
@@ -161,12 +227,12 @@ class Map(Node):
         super().__init__('map')
 
         self.map_file = '/home/prethivi/ros2_ws/pathplanning/processed.pcd'
-        self.pcd = open3d.io.read_point_cloud(self.map_file)
+        self.pcd = o3d.io.read_point_cloud(self.map_file)
         self.points_ = np.asarray(self.pcd.points)
-        self.map_publisher = self.create_publisher(OccupancyGrid,'/map',1)
+        self.map_publisher = self.create_publisher(OccupancyGrid,'/map',10)
         self.timer = self.create_timer(0.5,self.map_callback)
         
-        self.resolution = 0.05
+        self.resolution = 0.25
         self.min_x,self.min_y = np.min(self.points_[:,:2],axis=0)
         self.max_x,self.max_y = np.max(self.points_[:,:2],axis=0)
         self.obstacle_ = []
@@ -201,6 +267,9 @@ class Map(Node):
         self.map_.info.height = self.height
         
         self.map_.info.origin = Pose()
+        self.map_.info.origin.position.x = self.min_x
+        self.map_.info.origin.position.y = self.min_y
+        self.map_.info.origin.position.z = 0.0
 
         self.map_.data = self.occupancy_grid.flatten().tolist()
 
@@ -223,7 +292,7 @@ class Djikstra(Node):
         else:
 
             if self.start_idx == self.goal_idx:
-                pass
+                self.get_logger().info('Goal reached !!')
             else:
                 self.djikstra_search()
 
@@ -245,10 +314,12 @@ class Djikstra(Node):
             distance = node.distance_to(current_node)
             if distance<best_distance:
                 best_neighbour = node
+                best_neighbour.parent_node = current_node
+                current_node = best_neighbour
         
         self.visited_set_.append(best_neighbour)
-        best_neighbour.parent_node = current_node
-        current_node = best_neighbour
+        
+        
 
         print(self.visited_set_)
 
@@ -256,17 +327,27 @@ class Djikstra(Node):
 def main():
     rclpy.init()
     map_data = Map() 
-    graph = Graph(map_data)
+    graph = Graph()
 
     startx=0
     starty=0
-    goalx=40
-    goaly=40
+    goalx=15
+    goaly=15
 
     djikstra_algorithm = Djikstra(graph,[startx,starty],[goalx,goaly])
 
-    rclpy.spin(djikstra_algorithm)
-    rclpy.shutdown()
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(map_data)
+    executor.add_node(graph)
+    executor.add_node(djikstra_algorithm)
+
+    try:
+        executor.spin() 
+    finally:
+        map_data.destroy_node()
+        graph.destroy_node()
+        djikstra_algorithm.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

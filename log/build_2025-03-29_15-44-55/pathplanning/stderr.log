@@ -1,0 +1,5 @@
+  File "/home/prethivi/ros2_ws/pathplanning/install/pathplanning/lib/python3.10/site-packages/pathplanning/pathplanning.py", line 176
+    self.
+         ^
+SyntaxError: invalid syntax
+

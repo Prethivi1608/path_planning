@@ -25,6 +25,8 @@ class graph_node():
         self.neighbours_ = []
         self.neighbours__cost = []
 
+        self.parent_node = None #Parent Node of the neighbour
+
     def distance_to(self,other_node):
         return math.sqrt((self.x-other_node.x)**2 + (self.y-other_node.y)**2) 
 
@@ -211,19 +213,59 @@ class Djikstra(Node):
         super().__init__('djikstra')
 
         self.graph_ = graph
-        
-        self.unvisited_node_ = []
-        self.visited_node_ = []
 
         self.start_idx = self.graph_.get_closest_node(startxy)
         self.goal_idx = self.graph_.get_closest_node(goalxy)
+
+        if self.start_idx == None or self.goal_idx == None:
+            pass
+
+        else:
+
+            if self.start_idx == self.goal_idx:
+                pass
+            else:
+                self.djikstra_search()
+
+    
+    def djikstra_search(self):
+
+        self.unvisited_set_ = []
+        self.visited_set_ = []
+        best_distance = 9999999
+        best_neighbour = None
+        
+
+        self.unvisited_set_.append(self.graph_.nodes[self.start_idx]) ## Adding start node to unvisited set.
+
+        current_node = self.graph_.nodes[self.start_idx] # moving the start node to current node. 
+
+        for node in current_node.neighbours_:
+            self.unvisited_set_.append(node)
+            distance = node.distance_to(current_node)
+            if distance<best_distance:
+                best_neighbour = node
+        
+        self.visited_set_.append(best_neighbour)
+        best_neighbour.parent_node = current_node
+        current_node = best_neighbour
+
+        print(self.visited_set_)
 
 
 def main():
     rclpy.init()
     map_data = Map() 
     graph = Graph(map_data)
-    rclpy.spin(graph)
+
+    startx=0
+    starty=0
+    goalx=40
+    goaly=40
+
+    djikstra_algorithm = Djikstra(graph,[startx,starty],[goalx,goaly])
+
+    rclpy.spin(djikstra_algorithm)
     rclpy.shutdown()
 
 if __name__ == '__main__':

@@ -4,8 +4,9 @@ from rclpy.node import Node
 from nav_msgs.msg import OccupancyGrid
 import rclpy.time
 from std_msgs.msg import Header
-from geometry_msgs.msg import Pose,Point    
+from geometry_msgs.msg import Pose,Point,PoseStamped    
 from visualization_msgs.msg import Marker
+from nav_msgs.msg import Path
 import open3d as o3d
 import numpy as np
 import time
@@ -95,23 +96,6 @@ class Graph(Node):
         self.marker_edges_.color.g = 0.0
         self.marker_edges_.color.b = 0.0
 
-        self.marker_path = Marker()
-        self.marker_path.header.frame_id = "map"
-        self.marker_path.ns = "path"
-        self.marker_path.id = 0
-        self.marker_path.type = Marker.LINE_LIST
-        self.marker_path.action = Marker.ADD
-        self.marker_path.pose.position.x = 0.0
-        self.marker_path.pose.position.y = 0.0
-        self.marker_path.pose.position.z = 0.0
-        self.marker_path.scale.x = 0.01
-        self.marker_path.scale.y = 0.01
-        self.marker_path.scale.z = 0.01
-        self.marker_path.color.a = 1.0
-        self.marker_path.color.r = 0.0
-        self.marker_path.color.g = 1.0
-        self.marker_path.color.b = 0.0
-
 
 
     def map_callback(self, msg):
@@ -199,9 +183,10 @@ class Graph(Node):
         self.marker_publish.publish(self.marker_edges_)
 
         Astar(self,[0,0],[40,40])
+        
         time.sleep(100)
+        
 
-        return
 
 
     def get_closest_node(self,xy):
@@ -303,7 +288,10 @@ class Astar(Node):
         super().__init__('astar')
         self.graph_ = graph
 
-        print("Inside AStar")
+        self.path = []
+
+
+        self.path_publish = self.create_publisher(Path,'/path',10)
 
         self.start_idx = self.graph_.get_closest_node(startxy)
         self.goal_idx = self.graph_.get_closest_node(goalxy)
@@ -335,8 +323,6 @@ class Astar(Node):
     
     def astar_search(self):
 
-        print('Inside A*')
-
         self.unvisited_set_ = []
         self.visited_set_ = []
         minimum_distance = 99999
@@ -346,66 +332,68 @@ class Astar(Node):
         self.graph_.nodes[self.start_idx].cost_to_node_heuristic = 0
 
         current_idx = self.start_idx
-        print(f'start : {current_idx}') # start idx
         
         heuristic_weight = 1 #Zero for Djikstra 1 for Astar
         
         self.unvisited_set_.append(current_idx)
 
         while self.unvisited_set_:
-            # Select node with the minimum heuristic cost
-            minimum_distance = float('inf')
-            minimum_idx = None
 
-            for unv_idx in self.unvisited_set_:
-                dist = self.graph_.nodes[unv_idx].cost_to_node_heuristic
-                if dist < minimum_distance:
-                    minimum_distance = dist
-                    minimum_idx = unv_idx
-
-            if minimum_idx is None:
-                print("Path cannot be found")
-                return
-
-            current_idx = minimum_idx
-            self.unvisited_set_.remove(current_idx)
             self.visited_set_.append(current_idx)
-            print(f'Current node: {current_idx}')
+            self.unvisited_set_.remove(current_idx)
 
-            if current_idx == self.goal_idx:
-                print('Goal reached!')
-                self.get_path()
-                return
 
-            # Expand neighbors
             for neighbour in self.graph_.nodes[current_idx].neighbours_:
                 idx = neighbour.idx
                 if idx in self.visited_set_:
-                    continue  # Skip visited nodes
-
-                new_cost = self.graph_.nodes[current_idx].cost_to_node + neighbour.cost
-
-                if idx not in self.unvisited_set_ or new_cost < self.graph_.nodes[idx].cost_to_node:
-                    self.graph_.nodes[idx].cost_to_node = new_cost
+                    continue
+                if idx not in self.unvisited_set_:
+                    self.unvisited_set_.append(idx)
                     self.graph_.nodes[idx].parent_idx = current_idx
-                    self.cost_to_node_heuristic(idx, heuristic_weight)
+                
+                self.cost_to_node_heuristic(idx,heuristic_weight)
+                        
+            for unv_idx in self.unvisited_set_:
+                minimum_distance = 99999
+                minimum_idx = None
+                print(unv_idx)
+                dist = self.graph_.nodes[unv_idx].cost_to_node_heuristic
+                if dist<minimum_distance:
+                    minimum_distance = dist
+                    minimum_idx = unv_idx
+                    
+            if minimum_idx == None:
+                print("Path cannot be found")
+    
+            current_idx = minimum_idx
 
-                    if idx not in self.unvisited_set_:
-                        self.unvisited_set_.append(idx)
-
-        print("Path not found")
+            if current_idx == self.goal_idx:
+                print('Goal reached !!')
+                self.get_path()
     
 
     def get_path(self):
-        path = []
         current_idx = self.goal_idx
         while current_idx != self.start_idx:
-            path.append(current_idx)
+            self.path.append(current_idx)
             current_idx = self.graph_.nodes[current_idx].parent_idx
-        path.append(self.start_idx)
-        path.reverse()
-        print(f'Path: {path}')
-        time.sleep(1000)
+        self.path.append(self.start_idx)
+        self.path.reverse()
+        self.visualise_path(self.path)
+    
+    def visualise_path(self,path):
+        print("Inside visualise path")
+        msg = Path()
+        msg.header.frame_id = 'map'
+        for idx in path:
+            pose = PoseStamped()
+            pose.pose.position.x = self.graph_.nodes[idx].x
+            pose.pose.position.y = self.graph_.nodes[idx].y
+            pose.pose.position.z = 0.0
+            pose.header.frame_id = 'map'
+            msg.poses.append(pose)
+        self.path_publish.publish(msg)
+        self.get_logger().info('Path Published')
 
 
 def main():

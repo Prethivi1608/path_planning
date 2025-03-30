@@ -25,7 +25,10 @@ class graph_node():
         self.neighbours_ = []
         self.neighbours__cost = []
 
-        self.parent_node = None #Parent Node of the neighbour
+        self.parent_idx = None #Parent Node of the neighbour
+        self.cost_to_node = 9999999
+
+        self.cost_to_node_heuristic = None
 
     def distance_to(self,other_node):
         return math.sqrt((self.x-other_node.x)**2 + (self.y-other_node.y)**2) 
@@ -34,6 +37,7 @@ class graph_node():
 class Graph(Node):
     def __init__(self):
         super().__init__('graph')
+
 
         self.map_height = 0
         self.map_width = 0
@@ -46,12 +50,14 @@ class Graph(Node):
         self.map_origin_x = None
         self.map_origin_y = None
 
-        print('>>>>>')
+        self.grid_created = False
+
+        print('inside graph')
 
         self.grid_stepsize = 1
 
         self.subscription = self.create_subscription(
-            OccupancyGrid, 'map', self.map_callback, 10)
+            OccupancyGrid, 'map', self.map_callback, 1)
  
         self.marker_publish = self.create_publisher(Marker,'/marker',10)
 
@@ -107,6 +113,7 @@ class Graph(Node):
         self.marker_path.color.b = 0.0
 
 
+
     def map_callback(self, msg):
         self.map_width = msg.info.width
         self.map_height = msg.info.height
@@ -121,10 +128,9 @@ class Graph(Node):
 
     def create_grid(self):
 
-        print('<<<<<>>>>>')
-        if self.map_data is None:
-            self.get_logger("No Map Data Recieved")
-            return
+        print('create grid')
+        while self.map_data is None:
+            self.get_logger().info("No Map Data Recieved!!")
 
         idx=0
         for i in range(0, self.map_width, self.grid_stepsize): 
@@ -135,6 +141,7 @@ class Graph(Node):
                     continue
                 else:
                     self.nodes.append(graph_node(idx,x,y)) #create Node
+                    self.get_logger().info(f'{idx} Nodes are created')
                 idx += 1
 
         
@@ -147,13 +154,20 @@ class Graph(Node):
 
                     if distance<distance_threshold:
                         nodei.neighbours_.append(nodej)
+                        nodei.neighbours__cost.append(distance)
         
                 
+        self.grid_created = True
         self.visualise_grid()
+        return
+        
+
+    def is_grid_created(self):
+        return self.grid_created
     
     def visualise_grid(self):
 
-        print('<><><><><')
+        print('viz grid')
 
         self.marker_node.points = []
         
@@ -184,11 +198,25 @@ class Graph(Node):
         self.marker_publish.publish(self.marker_node)
         self.marker_publish.publish(self.marker_edges_)
 
+        Astar(self,[0,0],[40,40])
+        time.sleep(100)
+
+        return
+
+
     def get_closest_node(self,xy):
-        best_distance = 9999999
+
+        print('Inside closest node')
+
+        best_distance = float('inf')
         best_idx = None
+
+        if self.nodes is None:
+            print('No Nodes')
+            return
         
         for node in self.nodes:
+            print(node.x)
             distance = math.sqrt((node.x-xy[0])**2 + (node.y-xy[1])**2)
             if distance < best_distance:
                 best_distance = distance
@@ -209,15 +237,6 @@ class Graph(Node):
         
         if min_distance <= obstacle_threshold:
             return True
-        return False
-    
-    def is_path_obstructed(self, x1, y1, x2, y2):
-        num_points = int(math.dist([x1, y1], [x2, y2]) / self.resolution * 2) 
-        for i in range(num_points + 1):
-            px = x1 + i * (x2 - x1) / num_points
-            py = y1 + i * (y2 - y1) / num_points
-            if self.obstacle_node(px, py):  
-                return True
         return False
 
 
@@ -275,79 +294,135 @@ class Map(Node):
 
         self.map_publisher.publish(self.map_)
         self.get_logger().info('Map Published')
+        time.sleep(1000)
+        return
 
 
-class Djikstra(Node):
+class Astar(Node):
     def __init__(self,graph,startxy=None,goalxy=None):
-        super().__init__('djikstra')
-
+        super().__init__('astar')
         self.graph_ = graph
+
+        print("Inside AStar")
 
         self.start_idx = self.graph_.get_closest_node(startxy)
         self.goal_idx = self.graph_.get_closest_node(goalxy)
+        print(f'goal:{self.goal_idx}')
 
         if self.start_idx == None or self.goal_idx == None:
-            pass
+            print('No Start and Goal Recieved')
 
         else:
+            print("Goal Recieved")
 
             if self.start_idx == self.goal_idx:
-                self.get_logger().info('Goal reached !!')
+                print('Goal reached !!')
             else:
-                self.djikstra_search()
+                self.astar_search()
+
+    def distance_to_goal(self,idx):
+        return self.graph_.nodes[idx].distance_to(self.graph_.nodes[self.goal_idx])
+    
+    def cost_to_node_cal(self,idx):
+
+        parent_idx = self.graph_.nodes[idx].parent_idx
+        self.graph_.nodes[idx].cost_to_node = self.graph_.nodes[parent_idx].cost_to_node + self.graph_.nodes[idx].neighbours__cost[0]
+        return self.graph_.nodes[idx].cost_to_node
+    
+    def cost_to_node_heuristic(self,idx,heuristic_weight):
+        self.graph_.nodes[idx].cost_to_node_heuristic = self.cost_to_node_cal(idx) + (self.distance_to_goal(idx)*heuristic_weight)
 
     
-    def djikstra_search(self):
+    def astar_search(self):
+
+        print('Inside A*')
 
         self.unvisited_set_ = []
         self.visited_set_ = []
-        best_distance = 9999999
-        best_neighbour = None
-        
+        minimum_distance = 99999
+        minimum_idx = None
 
-        self.unvisited_set_.append(self.graph_.nodes[self.start_idx]) ## Adding start node to unvisited set.
+        self.graph_.nodes[self.start_idx].cost_to_node = 0
+        self.graph_.nodes[self.start_idx].cost_to_node_heuristic = 0
 
-        current_node = self.graph_.nodes[self.start_idx] # moving the start node to current node. 
+        current_idx = self.start_idx
+        print(f'start : {current_idx}') # start idx
+        
+        heuristic_weight = 1 #Zero for Djikstra 1 for Astar
+        
+        self.unvisited_set_.append(current_idx)
 
-        for node in current_node.neighbours_:
-            self.unvisited_set_.append(node)
-            distance = node.distance_to(current_node)
-            if distance<best_distance:
-                best_neighbour = node
-                best_neighbour.parent_node = current_node
-                current_node = best_neighbour
-        
-        self.visited_set_.append(best_neighbour)
-        
-        
+        if current_idx != self.goal_idx:
 
-        print(self.visited_set_)
+            for neighbour in self.graph_.nodes[current_idx].neighbours_:
+                print(f"neigh: {len(self.graph_.nodes[current_idx].neighbours_)}")
+                idx = neighbour.idx
+                if idx in self.visited_set_:
+                    continue
+                if idx not in self.unvisited_set_:
+                    self.unvisited_set_.append(idx)
+                    self.graph_.nodes[idx].parent_idx = current_idx
+                
+                self.cost_to_node_heuristic(idx,heuristic_weight)
+                print(f'Unv: {len(self.unvisited_set_)}')
+                        
+            for unv_idx in self.unvisited_set_:
+                dist = self.graph_.nodes[unv_idx].cost_to_node_heuristic
+                if dist<minimum_distance:
+                    minimum_distance = dist
+                    minimum_idx = unv_idx
+                    
+            if minimum_idx == None:
+                print("Path cannot be found")
+            print(f'min_idx: {minimum_idx}')
+        
+            self.visited_set_.append(minimum_idx)
+            print(f'hello {self.visited_set_}')
+            self.unvisited_set_.remove(minimum_idx)
+            current_idx = minimum_idx
+            print(f'current_idx: {minimum_idx}')
+
+        if current_idx == self.goal_idx:
+            print('Goal reached !!')
+            self.get_path()
+            return
+    
+
+    def get_path(self):
+        path = []
+        current_idx = self.goal_idx
+        while current_idx != self.start_idx:
+            path.append(current_idx)
+            current_idx = self.graph_.nodes[current_idx].parent_idx
+        path.append(self.start_idx)
+        path.reverse()
+        print(f'Path: {path}')
+        time.sleep(1000)
 
 
 def main():
     rclpy.init()
-    map_data = Map() 
+    map_data = Map()
     graph = Graph()
 
-    startx=0
-    starty=0
-    goalx=15
-    goaly=15
+    startx=5
+    starty=15
+    goalx=14
+    goaly=50
 
-    djikstra_algorithm = Djikstra(graph,[startx,starty],[goalx,goaly])
+    # djikstra_algorithm = Astar(graph,[startx,starty],[goalx,goaly])
 
     executor = rclpy.executors.MultiThreadedExecutor()
     executor.add_node(map_data)
     executor.add_node(graph)
-    executor.add_node(djikstra_algorithm)
+    # executor.add_node(djikstra_algorithm)
 
-    try:
-        executor.spin() 
-    finally:
-        map_data.destroy_node()
-        graph.destroy_node()
-        djikstra_algorithm.destroy_node()
-        rclpy.shutdown()
+    executor.spin()
+    
+    map_data.destroy_node()
+    graph.destroy_node()
+    # djikstra_algorithm.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

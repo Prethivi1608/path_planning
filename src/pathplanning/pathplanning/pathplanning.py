@@ -401,11 +401,6 @@ def main():
     map_data = Map()
     graph = Graph()
 
-    startx=5
-    starty=15
-    goalx=14
-    goaly=50
-
     # djikstra_algorithm = Astar(graph,[startx,starty],[goalx,goaly])
 
     executor = rclpy.executors.MultiThreadedExecutor()

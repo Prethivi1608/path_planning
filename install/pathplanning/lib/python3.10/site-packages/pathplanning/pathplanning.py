@@ -119,13 +119,13 @@ class Graph(Node):
         idx=0
         for i in range(0, self.map_width, self.grid_stepsize): 
             for j in range(0, self.map_height, self.grid_stepsize): 
-                x = i * self.resolution + self.map_origin_x
-                y = j * self.resolution + self.map_origin_y
+                x = (i * self.resolution + self.map_origin_x)
+                y = (j * self.resolution + self.map_origin_y)
                 if self.obstacle_node(x,y):
                     continue
                 else:
                     self.nodes.append(graph_node(idx,x,y)) #create Node
-                    self.get_logger().info(f'{idx} Nodes are created')
+                    self.get_logger().info(f'{idx} Nodes are created at {x},{y}')
                 idx += 1
 
         
@@ -182,7 +182,7 @@ class Graph(Node):
         self.marker_publish.publish(self.marker_node)
         self.marker_publish.publish(self.marker_edges_)
 
-        Astar(self,[0,0],[40,40])
+        Astar(self,[-1,-4],[9,2])
         
         time.sleep(100)
         
@@ -193,20 +193,20 @@ class Graph(Node):
 
         print('Inside closest node')
 
-        best_distance = float('inf')
-        best_idx = None
-
         if self.nodes is None:
             print('No Nodes')
             return
         
+        best_distance = 999999
+        best_idx = None
+        
         for node in self.nodes:
-            print(node.x)
             distance = math.sqrt((node.x-xy[0])**2 + (node.y-xy[1])**2)
             if distance < best_distance:
                 best_distance = distance
                 best_idx = node.idx
-
+        
+                
         return best_idx
     
     def obstacle_node(self,x,y):
@@ -230,7 +230,7 @@ class Map(Node):
     def __init__(self):
         super().__init__('map')
 
-        self.map_file = '/home/prethivi/ros2_ws/pathplanning/processed.pcd'
+        self.map_file = '/home/prethiviraj/ros2/workspaces/path_planning/processed.pcd'
         self.pcd = o3d.io.read_point_cloud(self.map_file)
         self.points_ = np.asarray(self.pcd.points)
         self.map_publisher = self.create_publisher(OccupancyGrid,'/map',10)
@@ -295,7 +295,6 @@ class Astar(Node):
 
         self.start_idx = self.graph_.get_closest_node(startxy)
         self.goal_idx = self.graph_.get_closest_node(goalxy)
-        print(f'goal:{self.goal_idx}')
 
         if self.start_idx == None or self.goal_idx == None:
             print('No Start and Goal Recieved')
@@ -333,7 +332,7 @@ class Astar(Node):
 
         current_idx = self.start_idx
         
-        heuristic_weight = 1 #Zero for Djikstra 1 for Astar
+        heuristic_weight = 0 #Zero for Djikstra 1 for Astar
         
         self.unvisited_set_.append(current_idx)
 
@@ -353,10 +352,10 @@ class Astar(Node):
                 
                 self.cost_to_node_heuristic(idx,heuristic_weight)
                         
+            minimum_distance = 99999
+            minimum_idx = None
+            
             for unv_idx in self.unvisited_set_:
-                minimum_distance = 99999
-                minimum_idx = None
-                print(unv_idx)
                 dist = self.graph_.nodes[unv_idx].cost_to_node_heuristic
                 if dist<minimum_distance:
                     minimum_distance = dist
@@ -400,11 +399,6 @@ def main():
     rclpy.init()
     map_data = Map()
     graph = Graph()
-
-    startx=5
-    starty=15
-    goalx=14
-    goaly=50
 
     # djikstra_algorithm = Astar(graph,[startx,starty],[goalx,goaly])
 

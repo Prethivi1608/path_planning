@@ -38,6 +38,8 @@ class graph_node():
 class Graph(Node):
     def __init__(self):
         super().__init__('graph')
+        
+        self.start_time = time.time()
 
 
         self.map_height = 0
@@ -52,8 +54,6 @@ class Graph(Node):
         self.map_origin_y = None
 
         self.grid_created = False
-
-        print('inside graph')
 
         self.grid_stepsize = 1
 
@@ -111,8 +111,7 @@ class Graph(Node):
         self.create_grid()
 
     def create_grid(self):
-
-        print('create grid')
+        self.get_logger().info('Publishing Grids...')
         while self.map_data is None:
             self.get_logger().info("No Map Data Recieved!!")
 
@@ -125,7 +124,6 @@ class Graph(Node):
                     continue
                 else:
                     self.nodes.append(graph_node(idx,x,y)) #create Node
-                    self.get_logger().info(f'{idx} Nodes are created at {x},{y}')
                 idx += 1
 
         
@@ -150,8 +148,6 @@ class Graph(Node):
         return self.grid_created
     
     def visualise_grid(self):
-
-        print('viz grid')
 
         self.marker_node.points = []
         
@@ -181,17 +177,16 @@ class Graph(Node):
 
         self.marker_publish.publish(self.marker_node)
         self.marker_publish.publish(self.marker_edges_)
-
-        Astar(self,[-1,-4],[9,2])
         
-        time.sleep(100)
+        self.end_time = time.time()
         
+        graph_execution_time = (self.end_time - self.start_time)
+        
+        self.get_logger().info(f'Grids published in {graph_execution_time:.0f} seconds')
 
-
+        Astar(self,[0,0],[5,-7])
 
     def get_closest_node(self,xy):
-
-        print('Inside closest node')
 
         if self.nodes is None:
             print('No Nodes')
@@ -279,7 +274,7 @@ class Map(Node):
 
         self.map_publisher.publish(self.map_)
         self.get_logger().info('Map Published')
-        time.sleep(1000)
+        time.sleep(50)
         return
 
 
@@ -289,7 +284,8 @@ class Astar(Node):
         self.graph_ = graph
 
         self.path = []
-
+        
+        self.start_time = time.time()
 
         self.path_publish = self.create_publisher(Path,'/path',10)
 
@@ -361,8 +357,8 @@ class Astar(Node):
                     minimum_distance = dist
                     minimum_idx = unv_idx
                     
-            if minimum_idx == None:
-                print("Path cannot be found")
+                if minimum_idx == None:
+                    print("Path cannot be found")
     
             current_idx = minimum_idx
 
@@ -381,7 +377,6 @@ class Astar(Node):
         self.visualise_path(self.path)
     
     def visualise_path(self,path):
-        print("Inside visualise path")
         msg = Path()
         msg.header.frame_id = 'map'
         for idx in path:
@@ -392,9 +387,14 @@ class Astar(Node):
             pose.header.frame_id = 'map'
             msg.poses.append(pose)
         self.path_publish.publish(msg)
-        self.get_logger().info('Path Published')
-
-
+        
+    
+        self.end_time = time.time()
+        
+        execution_time = (self.end_time - self.start_time)
+        
+        self.get_logger().info(f'Path published in {execution_time:.2f} seconds')
+        
 def main():
     rclpy.init()
     map_data = Map()

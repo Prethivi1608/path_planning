@@ -78,6 +78,57 @@ class Graph(Node):
         self.marker_node.color.r = 1.0
         self.marker_node.color.g = 1.0
         self.marker_node.color.b = 1.0
+        
+        self.marker_visited = Marker()
+        self.marker_visited.header = Header()
+        self.marker_visited.header.frame_id = 'map'
+        self.marker_visited.ns = 'visitedmarker_'
+        self.marker_visited.type = Marker.POINTS
+        self.marker_visited.action = Marker.ADD
+        self.marker_visited.pose.position.x = 0.0
+        self.marker_visited.pose.position.y = 0.0
+        self.marker_visited.pose.position.z = 0.0
+        self.marker_visited.scale.x = 0.05
+        self.marker_visited.scale.y = 0.05
+        self.marker_visited.scale.z = 0.05
+        self.marker_visited.color.a = 1.0
+        self.marker_visited.color.r = 0.0
+        self.marker_visited.color.g = 0.0
+        self.marker_visited.color.b = 1.0
+        
+        self.marker_unvisited = Marker()
+        self.marker_unvisited.header = Header()
+        self.marker_unvisited.header.frame_id = 'map'
+        self.marker_unvisited.ns = 'unvisitedmarker_'
+        self.marker_unvisited.type = Marker.POINTS
+        self.marker_unvisited.action = Marker.ADD
+        self.marker_unvisited.pose.position.x = 0.0
+        self.marker_unvisited.pose.position.y = 0.0
+        self.marker_unvisited.pose.position.z = 0.0
+        self.marker_unvisited.scale.x = 0.05
+        self.marker_unvisited.scale.y = 0.05
+        self.marker_unvisited.scale.z = 0.05
+        self.marker_unvisited.color.a = 1.0
+        self.marker_unvisited.color.r = 0.0
+        self.marker_unvisited.color.g = 1.0
+        self.marker_unvisited.color.b = 0.0
+        
+        self.marker_start_goal = Marker()
+        self.marker_start_goal.header = Header()
+        self.marker_start_goal.header.frame_id = 'map'
+        self.marker_start_goal.ns = 'start_goalmarker_'
+        self.marker_start_goal.type = Marker.POINTS
+        self.marker_start_goal.action = Marker.ADD
+        self.marker_start_goal.pose.position.x = 0.0
+        self.marker_start_goal.pose.position.y = 0.0
+        self.marker_start_goal.pose.position.z = 0.0
+        self.marker_start_goal.scale.x = 0.075
+        self.marker_start_goal.scale.y = 0.075
+        self.marker_start_goal.scale.z = 0.075
+        self.marker_start_goal.color.a = 1.0
+        self.marker_start_goal.color.r = 1.0
+        self.marker_start_goal.color.g = 0.0
+        self.marker_start_goal.color.b = 0.0
 
         self.marker_edges_ = Marker()
         self.marker_edges_.header.frame_id = "map"
@@ -88,15 +139,13 @@ class Graph(Node):
         self.marker_edges_.pose.position.x = 0.0
         self.marker_edges_.pose.position.y = 0.0
         self.marker_edges_.pose.position.z = 0.0
-        self.marker_edges_.scale.x = 0.01
-        self.marker_edges_.scale.y = 0.01
-        self.marker_edges_.scale.z = 0.01
+        self.marker_edges_.scale.x = 0.0005
+        self.marker_edges_.scale.y = 0.0005
+        self.marker_edges_.scale.z = 0.0005
         self.marker_edges_.color.a = 1.0
         self.marker_edges_.color.r = 0.0
         self.marker_edges_.color.g = 0.0
         self.marker_edges_.color.b = 0.0
-
-
 
     def map_callback(self, msg):
         self.map_width = msg.info.width
@@ -177,6 +226,7 @@ class Graph(Node):
 
         self.marker_publish.publish(self.marker_node)
         self.marker_publish.publish(self.marker_edges_)
+        time.sleep(2)
         
         self.end_time = time.time()
         
@@ -184,7 +234,8 @@ class Graph(Node):
         
         self.get_logger().info(f'Grids published in {graph_execution_time:.0f} seconds')
 
-        Astar(self,[0,0],[5,-7])
+        Astar(self,[5,4],[-2,-6])
+        time.sleep(1000)
 
     def get_closest_node(self,xy):
 
@@ -206,7 +257,7 @@ class Graph(Node):
     
     def obstacle_node(self,x,y):
         min_distance = 9999999
-        obstacle_threshold = self.resolution/2
+        obstacle_threshold = self.resolution/0.85
         
         for i in range(len(self.obstacles_position)):
             obs_x = self.obstacles_position[i][1] * self.resolution + self.map_origin_x
@@ -274,7 +325,7 @@ class Map(Node):
 
         self.map_publisher.publish(self.map_)
         self.get_logger().info('Map Published')
-        time.sleep(50)
+        time.sleep(5000)
         return
 
 
@@ -320,21 +371,20 @@ class Astar(Node):
 
         self.unvisited_set_ = []
         self.visited_set_ = []
-        minimum_distance = 99999
-        minimum_idx = None
 
         self.graph_.nodes[self.start_idx].cost_to_node = 0
         self.graph_.nodes[self.start_idx].cost_to_node_heuristic = 0
 
         current_idx = self.start_idx
         
-        heuristic_weight = 0 #Zero for Djikstra 1 for Astar
+        heuristic_weight = 1 #Zero for Djikstra 1 for Astar
         
         self.unvisited_set_.append(current_idx)
 
         while self.unvisited_set_:
 
             self.visited_set_.append(current_idx)
+            self.visualise_search(self.visited_set_,self.unvisited_set_,self.start_idx,self.goal_idx)
             self.unvisited_set_.remove(current_idx)
 
 
@@ -347,10 +397,9 @@ class Astar(Node):
                     self.graph_.nodes[idx].parent_idx = current_idx
                 
                 self.cost_to_node_heuristic(idx,heuristic_weight)
-                        
-            minimum_distance = 99999
-            minimum_idx = None
             
+            minimum_distance = 99999
+            minimum_idx = None       
             for unv_idx in self.unvisited_set_:
                 dist = self.graph_.nodes[unv_idx].cost_to_node_heuristic
                 if dist<minimum_distance:
@@ -365,6 +414,44 @@ class Astar(Node):
             if current_idx == self.goal_idx:
                 print('Goal reached !!')
                 self.get_path()
+                time.sleep(1)
+                break
+                
+    def visualise_search(self,visited_set,unvisited_set,start_idx,goal_idx):
+
+        self.graph_.marker_visited.points = []
+        self.graph_.marker_unvisited.points = []
+        self.graph_.marker_start_goal.points = []
+        
+        point = Point()
+        point.x = self.graph_.nodes[start_idx].x
+        point.y = self.graph_.nodes[start_idx].y
+        point.z = 0.0
+        self.graph_.marker_start_goal.points.append(point)
+        
+        point = Point()
+        point.x = self.graph_.nodes[goal_idx].x
+        point.y = self.graph_.nodes[goal_idx].y
+        point.z = 0.0
+        self.graph_.marker_start_goal.points.append(point)
+        
+        for idx in unvisited_set:
+            point = Point()
+            point.x = self.graph_.nodes[idx].x
+            point.y = self.graph_.nodes[idx].y
+            point.z = 0.0
+            self.graph_.marker_unvisited.points.append(point)
+        
+        for idx in visited_set:
+            point = Point()
+            point.x = self.graph_.nodes[idx].x
+            point.y = self.graph_.nodes[idx].y
+            point.z = 0.0
+            self.graph_.marker_visited.points.append(point)
+        
+        self.graph_.marker_publish.publish(self.graph_.marker_visited)
+        self.graph_.marker_publish.publish(self.graph_.marker_unvisited)
+        self.graph_.marker_publish.publish(self.graph_.marker_start_goal)
     
 
     def get_path(self):
